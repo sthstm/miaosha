@@ -1,6 +1,8 @@
 package com.google.controller;
 
 import com.google.controller.viewobject.UserVO;
+import com.google.error.BusinessException;
+import com.google.error.EmBusinessError;
 import com.google.response.CommonReturnType;
 import com.google.service.UserService;
 import com.google.service.model.UserModel;
@@ -20,9 +22,14 @@ public class UserController {
 
     @RequestMapping("/get")
     @ResponseBody
-    public CommonReturnType getUser(@RequestParam(name = "id") Integer id) {
+    public CommonReturnType getUser(@RequestParam(name = "id") Integer id) throws BusinessException {
         // 调用service服务获取对应id的用户对象返回给前端
         UserModel userModel = userService.getUserById(id);
+
+        // 获取的对应用户信息不存在
+        if (userModel == null) {
+            throw new BusinessException(EmBusinessError.USER_NOT_EXIST);
+        }
 
         // 将核心领域模型对象转化为可供UI使用的viewobject
         UserVO userVO = convertFromUserModel(userModel);
