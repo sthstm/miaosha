@@ -1,0 +1,5 @@
+com\google\dataobject\UserPasswordDO.class
+com\google\App.class
+com\google\dao\UserDOMapper.class
+com\google\dao\UserPasswordDOMapper.class
+com\google\dataobject\UserDO.class
