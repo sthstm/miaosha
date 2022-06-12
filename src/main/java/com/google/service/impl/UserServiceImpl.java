@@ -1,6 +1,5 @@
 package com.google.service.impl;
 
-import com.google.controller.viewobject.UserVO;
 import com.google.dao.UserDOMapper;
 import com.google.dao.UserPasswordDOMapper;
 import com.google.dataobject.UserDO;
@@ -54,6 +53,8 @@ public class UserServiceImpl implements UserService {
         // 实现model->dataobject方法
         UserDO userDO = convertFromModel(userModel);
         userDOMapper.insertSelective(userDO);
+
+        userModel.setId(userDO.getId());
 
         UserPasswordDO userPasswordDO = convertPasswordFromModel(userModel);
         userPasswordDOMapper.insertSelective(userPasswordDO);
