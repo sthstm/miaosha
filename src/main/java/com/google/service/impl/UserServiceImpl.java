@@ -8,6 +8,8 @@ import com.google.error.BusinessException;
 import com.google.error.EmBusinessError;
 import com.google.service.UserService;
 import com.google.service.model.UserModel;
+import com.google.validator.ValidationResult;
+import com.google.validator.ValidatorImpl;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +26,8 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private UserPasswordDOMapper userPasswordDOMapper;
 
+    @Autowired
+    private ValidatorImpl validator;
 
     @Override
     public UserModel getUserById(Integer id) {
@@ -45,11 +49,10 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(EmBusinessError.PARAMETER__VALIDATION_ERROR);
         }
 
-        if (StringUtils.isEmpty(userModel.getName()) || userModel.getGender() == null
-         || userModel.getAge() == null || StringUtils.isEmpty(userModel.getTelephone())) {
-            throw new BusinessException(EmBusinessError.PARAMETER__VALIDATION_ERROR);
+        ValidationResult result = validator.validate(userModel);
+        if (result.isHasErrors()) {
+            throw new BusinessException(EmBusinessError.PARAMETER__VALIDATION_ERROR, result.getErrMsg());
         }
-
 
         // 实现model->dataobject方法
         UserDO userDO = convertFromModel(userModel);
