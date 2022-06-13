@@ -22,6 +22,15 @@
     -->
     id, title, price, description, sales, img_url
   </sql>
+
+  <select id="listItem" resultMap="BaseResultMap">
+    select
+    <include refid="Base_Column_List" />
+    from item order by sales DESC;
+  </select>
+
+
+
   <select id="selectByPrimaryKey" parameterType="java.lang.Integer" resultMap="BaseResultMap">
     <!--
       WARNING - @mbg.generated

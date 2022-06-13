@@ -11,6 +11,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Controller("item")
 @RequestMapping("/item")
@@ -53,6 +55,21 @@ public class ItemController extends BaseController {
         ItemVO itemVO = convertFromItemModel(itemModel);
 
         return CommonReturnType.create(itemVO);
+    }
+
+
+    // 商品列表页面浏览
+    @RequestMapping(value = "/list", method = {RequestMethod.GET})
+    @ResponseBody
+    public CommonReturnType listItem() {
+        List<ItemModel> itemModelList = itemService.listItem();
+
+        // 将list中的itemModel转化为itemVO
+        List<ItemVO> collect = itemModelList.stream().map(itemModel -> {
+            ItemVO itemVO = this.convertFromItemModel(itemModel);
+            return itemVO;
+        }).collect(Collectors.toList());
+        return CommonReturnType.create(collect);
     }
 
     private ItemVO convertFromItemModel(ItemModel itemModel) {
