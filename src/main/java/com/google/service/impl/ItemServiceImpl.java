@@ -35,7 +35,7 @@ public class ItemServiceImpl implements ItemService {
         // 校验入参
         ValidationResult result = validator.validate(itemModel);
 
-        if(result.isHasErrors()) {
+        if (result.isHasErrors()) {
             throw new BusinessException(EmBusinessError.PARAMETER__VALIDATION_ERROR, result.getErrMsg());
         }
 
@@ -61,6 +61,9 @@ public class ItemServiceImpl implements ItemService {
         BeanUtils.copyProperties(itemModel, itemDO);
         return itemDO;
     }
+
+
+
 
 
     private ItemStockDO convertStockFromItemModel(ItemModel itemModel) {

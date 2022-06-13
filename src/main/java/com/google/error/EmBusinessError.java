@@ -9,7 +9,7 @@ public enum EmBusinessError implements CommonError{
     USER_LOGIN_FAIL(20002,"用户手机号或密码不正确")
     ;
 
-    private EmBusinessError(int errCode, String errMsg) {
+    EmBusinessError(int errCode, String errMsg) {
         this.errCode = errCode;
         this.errMsg = errMsg;
     }
