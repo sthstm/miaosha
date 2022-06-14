@@ -7,5 +7,4 @@ public interface OrderService {
 
     OrderModel createOrder(Integer userId, Integer itemId, Integer amount) throws BusinessException;
 
-
 }

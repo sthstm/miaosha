@@ -74,11 +74,11 @@ public class OrderServiceImpl implements OrderService {
         // 生成交易流水号，订单号
         orderModel.setId(generateOrderNO());
 
-
         OrderDO orderDO = convertFromOrderModel(orderModel);
-
         orderDOMapper.insertSelective(orderDO);
 
+        // 增加商品的销量
+         itemService.increaseSales(itemId, amount);
         // 返回前端
         return orderModel;
     }

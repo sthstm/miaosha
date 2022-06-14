@@ -1,6 +1,7 @@
 package com.google.dao;
 
 import com.google.dataobject.ItemDO;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -55,4 +56,7 @@ public interface ItemDOMapper {
      * @mbg.generated Sun Jun 12 23:22:44 CST 2022
      */
     int updateByPrimaryKey(ItemDO record);
+
+
+    void increaseSales(@Param("id") Integer id, @Param("amount") Integer amount);
 }
