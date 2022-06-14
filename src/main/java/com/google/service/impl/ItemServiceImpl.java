@@ -7,7 +7,9 @@ import com.google.dataobject.ItemStockDO;
 import com.google.error.BusinessException;
 import com.google.error.EmBusinessError;
 import com.google.service.ItemService;
+import com.google.service.PromoService;
 import com.google.service.model.ItemModel;
+import com.google.service.model.PromoModel;
 import com.google.validator.ValidationResult;
 import com.google.validator.ValidatorImpl;
 import org.springframework.beans.BeanUtils;
@@ -29,6 +31,9 @@ public class ItemServiceImpl implements ItemService {
 
     @Autowired
     private ItemStockDOMapper itemStockDOMapper;
+
+    @Autowired
+    private PromoService promoService;
 
     @Override
     @Transactional
@@ -62,10 +67,6 @@ public class ItemServiceImpl implements ItemService {
         BeanUtils.copyProperties(itemModel, itemDO);
         return itemDO;
     }
-
-
-
-
 
     private ItemStockDO convertStockFromItemModel(ItemModel itemModel) {
         if (itemModel == null) {
@@ -104,6 +105,12 @@ public class ItemServiceImpl implements ItemService {
 
         // dataobject->model
         ItemModel itemModel = convertFromDataObject(itemDO, itemStockDO);
+
+        // 获得活动商品信息
+        PromoModel promoModel = promoService.getPromoByItemId(itemModel.getId());
+        if (promoModel != null && promoModel.getStatus().intValue() != 3) {
+            itemModel.setPromoModel(promoModel);
+        }
 
         return itemModel;
     }

@@ -5,6 +5,7 @@ import com.google.error.BusinessException;
 import com.google.response.CommonReturnType;
 import com.google.service.ItemService;
 import com.google.service.model.ItemModel;
+import org.joda.time.format.DateTimeFormat;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -80,8 +81,19 @@ public class ItemController extends BaseController {
         ItemVO itemVO = new ItemVO();
 
         BeanUtils.copyProperties(itemModel, itemVO);
+        // 有秒杀活动
+        if (itemModel.getPromoModel() != null) {
+            itemVO.setPromoStatus(itemModel.getPromoModel().getStatus());
+            itemVO.setPromoId(itemModel.getPromoModel().getId());
+            itemVO.setStartDate(itemModel.getPromoModel().getStartDate().toString(DateTimeFormat.forPattern("yyyy-mm-dd hh:mm:ss")));
+            itemVO.setPromoPrice(itemModel.getPromoModel().getPromoItemPrice());
+        } else {
+            itemVO.setPromoStatus(0);
+        }
 
         return itemVO;
     }
+
+
 
 }
