@@ -16,8 +16,6 @@ public class PromoServiceImpl implements PromoService {
     @Autowired
     private PromoDOMapper promoDOMapper;
 
-
-
     @Override
     public PromoModel getPromoByItemId(Integer itemId) {
 

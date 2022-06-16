@@ -35,7 +35,7 @@ public interface UserPasswordDOMapper {
      */
     UserPasswordDO selectByPrimaryKey(Integer id);
 
-    UserPasswordDO selectByUserId(Integer id);
+    UserPasswordDO selectByUserId(Integer userId);
 
 
     /**
