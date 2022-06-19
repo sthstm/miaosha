@@ -26,7 +26,6 @@ public class WebServerConfiguration implements WebServerFactoryCustomizer<Config
 
                 // 当客户端发送超过10000个请求则自动断开keepalive连接
                 protocol.setMaxKeepAliveRequests(10000);
-
             }
         });
     }
