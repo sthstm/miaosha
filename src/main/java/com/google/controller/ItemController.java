@@ -3,6 +3,7 @@ package com.google.controller;
 import com.google.controller.viewobject.ItemVO;
 import com.google.error.BusinessException;
 import com.google.response.CommonReturnType;
+import com.google.service.CacheService;
 import com.google.service.ItemService;
 import com.google.service.model.ItemModel;
 import org.joda.time.format.DateTimeFormat;
@@ -28,14 +29,17 @@ public class ItemController extends BaseController {
     @Autowired
     private RedisTemplate redisTemplate;
 
+    @Autowired
+    private CacheService cacheService;
+
     // 创建商品的controller
     @RequestMapping(value = "/create", method = {RequestMethod.POST}, consumes = {CONTENT_TYPE_FORMED})
     @ResponseBody
-    public CommonReturnType createItem(@RequestParam(name = "title")String title,
-                                       @RequestParam(name = "description")String description,
+    public CommonReturnType createItem(@RequestParam(name = "title") String title,
+                                       @RequestParam(name = "description") String description,
                                        @RequestParam(name = "price") BigDecimal price,
-                                       @RequestParam(name = "stock")Integer stock,
-                                       @RequestParam(name = "imgUrl")String imgUrl) throws BusinessException {
+                                       @RequestParam(name = "stock") Integer stock,
+                                       @RequestParam(name = "imgUrl") String imgUrl) throws BusinessException {
 
         // 封装service请求用于创建商品
         ItemModel itemModel = new ItemModel();
@@ -56,15 +60,26 @@ public class ItemController extends BaseController {
     @RequestMapping(value = "/get", method = {RequestMethod.GET})
     @ResponseBody
     public CommonReturnType getItem(@RequestParam(name = "id") Integer id) {
-        // 根据商品的id到redis内获取
-        ItemModel itemModel = (ItemModel) redisTemplate.opsForValue().get("item_" + id);
+        ItemModel itemModel = null;
 
-        //若redis内不存在对应的itemModel，则访问下游的service
+        // 先取本地缓存
+        itemModel = (ItemModel) cacheService.getFromCommonCache("item_" + id);
+
+        // 本地缓存中没有
         if (itemModel == null) {
-            itemModel = itemService.getItemById(id);
-            // 设置itemModel到redis内
-            redisTemplate.opsForValue().set("item_" + id, itemModel);
-            redisTemplate.expire("item" + id, 10, TimeUnit.MINUTES);
+            // 根据商品的id到redis内获取
+            itemModel = (ItemModel) redisTemplate.opsForValue().get("item_" + id);
+
+            //若redis内不存在对应的itemModel，则访问下游的service
+            if (itemModel == null) {
+                itemModel = itemService.getItemById(id);
+                // 设置itemModel到redis内
+                redisTemplate.opsForValue().set("item_" + id, itemModel);
+                redisTemplate.expire("item_" + id, 10, TimeUnit.MINUTES);
+            }
+            // 填充本地缓存
+            cacheService.setCommonCache("item_" + id, itemModel);
+
         }
 
 
