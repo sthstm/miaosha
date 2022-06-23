@@ -5,6 +5,7 @@ import com.google.error.BusinessException;
 import com.google.response.CommonReturnType;
 import com.google.service.CacheService;
 import com.google.service.ItemService;
+import com.google.service.PromoService;
 import com.google.service.model.ItemModel;
 import org.joda.time.format.DateTimeFormat;
 import org.springframework.beans.BeanUtils;
@@ -32,6 +33,9 @@ public class ItemController extends BaseController {
     @Autowired
     private CacheService cacheService;
 
+    @Autowired
+    private PromoService promoService;
+
     // 创建商品的controller
     @RequestMapping(value = "/create", method = {RequestMethod.POST}, consumes = {CONTENT_TYPE_FORMED})
     @ResponseBody
@@ -54,6 +58,13 @@ public class ItemController extends BaseController {
         ItemVO itemVO = convertFromItemModel(itemModelForReturn);
 
         return CommonReturnType.create(itemVO);
+    }
+
+    @RequestMapping(value = "/publishpromo", method = {RequestMethod.GET})
+    @ResponseBody
+    public CommonReturnType publishpromo(@RequestParam(name = "id") Integer id) {
+        promoService.publishPromo(id);
+        return CommonReturnType.create(null);
     }
 
 
