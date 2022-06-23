@@ -14,6 +14,10 @@ public interface ItemService {
     // 商品详情浏览
     ItemModel getItemById(Integer id);
 
+    // item及promo model缓存模型
+    ItemModel getItemByIdInCache(Integer id);
+
+
     // 库存扣减
     boolean decreaseStock(Integer itemId, Integer amount) throws BusinessException;
 
