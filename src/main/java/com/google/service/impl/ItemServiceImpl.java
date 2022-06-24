@@ -6,12 +6,17 @@ import com.google.dataobject.ItemDO;
 import com.google.dataobject.ItemStockDO;
 import com.google.error.BusinessException;
 import com.google.error.EmBusinessError;
+import com.google.mq.MqProducer;
 import com.google.service.ItemService;
 import com.google.service.PromoService;
 import com.google.service.model.ItemModel;
 import com.google.service.model.PromoModel;
 import com.google.validator.ValidationResult;
 import com.google.validator.ValidatorImpl;
+import org.apache.rocketmq.client.exception.MQBrokerException;
+import org.apache.rocketmq.client.exception.MQClientException;
+import org.apache.rocketmq.client.producer.SendResult;
+import org.apache.rocketmq.remoting.exception.RemotingException;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -39,6 +44,9 @@ public class ItemServiceImpl implements ItemService {
 
     @Autowired
     private RedisTemplate redisTemplate;
+
+    @Autowired
+    private MqProducer mqProducer;
 
     @Override
     @Transactional
@@ -140,9 +148,16 @@ public class ItemServiceImpl implements ItemService {
         long result = redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.intValue() * -1);
         if (result >= 0) {
             // 更新成功
+            boolean mqResult = mqProducer.asyncReduceStock(itemId, amount);
+            if (!mqResult) {
+                redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.intValue());
+                return false;
+            }
             return true;
+        } else {
+            redisTemplate.opsForValue().increment("promo_item_stock_" + itemId, amount.intValue());
+            return false;
         }
-        return false;
     }
 
     @Override
