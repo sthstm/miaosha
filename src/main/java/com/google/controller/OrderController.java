@@ -3,6 +3,7 @@ package com.google.controller;
 
 import com.google.error.BusinessException;
 import com.google.error.EmBusinessError;
+import com.google.mq.MqProducer;
 import com.google.response.CommonReturnType;
 import com.google.service.OrderService;
 import com.google.service.model.OrderModel;
@@ -29,6 +30,9 @@ public class OrderController extends BaseController {
     @Autowired
     private RedisTemplate redisTemplate;
 
+    @Autowired
+    private MqProducer mqProducer;
+
     // 封装下单请求
     @RequestMapping(value = "/createorder", method = {RequestMethod.POST}, consumes = {CONTENT_TYPE_FORMED})
     @ResponseBody
@@ -51,8 +55,10 @@ public class OrderController extends BaseController {
         }
 
         //UserModel userModel = (UserModel) httpServletRequest.getSession().getAttribute("LOGIN_USER");
-        OrderModel orderModel = orderService.createOrder(userModel.getId(), itemId, promoId, amount);
-
+        // OrderModel orderModel = orderService.createOrder(userModel.getId(), itemId, promoId, amount);
+        if (!mqProducer.transactionAsyncReduceStock(userModel.getId(), itemId, promoId, amount)) {
+            throw new BusinessException(EmBusinessError.UNKNOWN_ERROR, "下单失败");
+        }
         return CommonReturnType.create(null);
     }
 }
