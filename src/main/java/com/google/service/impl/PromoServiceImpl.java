@@ -2,15 +2,22 @@ package com.google.service.impl;
 
 import com.google.dao.PromoDOMapper;
 import com.google.dataobject.PromoDO;
+import com.google.error.BusinessException;
+import com.google.error.EmBusinessError;
 import com.google.service.ItemService;
 import com.google.service.PromoService;
+import com.google.service.UserService;
 import com.google.service.model.ItemModel;
 import com.google.service.model.PromoModel;
+import com.google.service.model.UserModel;
 import org.joda.time.DateTime;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 
 @Service
@@ -21,6 +28,9 @@ public class PromoServiceImpl implements PromoService {
 
     @Autowired
     private ItemService itemService;
+
+    @Autowired
+    private UserService userService;
 
     @Autowired
     private RedisTemplate redisTemplate;
@@ -62,6 +72,52 @@ public class PromoServiceImpl implements PromoService {
         // 将库存同步到redis内
         redisTemplate.opsForValue().set("promo_item_stock_" + itemModel.getId(), itemModel.getStock());
 
+    }
+
+    @Override
+    public String generateSecondKillToken(Integer promoId, Integer itemId, Integer userId) {
+
+        PromoDO promoDO = promoDOMapper.selectByPrimaryKey(promoId);
+
+        // dataobject->model
+        PromoModel promoModel = convertFromDataObject(promoDO);
+        if (promoModel == null) {
+            return null;
+        }
+
+        // 判断当前时间是否秒杀活动即将开始或正在进行
+        if (promoModel.getStartDate().isAfterNow()) {
+            promoModel.setStatus(1);
+        } else if (promoModel.getEndDate().isBeforeNow()) {
+            promoModel.setStatus(3);
+        } else {
+            promoModel.setStatus(2);
+        }
+
+        // 判断活动是否进行
+        if (promoModel.getStatus() != 2) {
+            return null;
+        }
+
+        // 判度item信息是否存在
+        ItemModel itemModel = itemService.getItemByIdInCache(itemId);
+        if (itemModel == null) {
+            return null;
+        }
+
+        // 判断user信息是否存在
+        UserModel userModel = userService.getUserByIdInCache(userId);
+        if (userModel == null) {
+            return null;
+        }
+
+
+        // 生成token存入redis，过期时间为5min
+        String token = UUID.randomUUID().toString().replace("-", "");
+
+        redisTemplate.opsForValue().set("promo_token_" + promoId + "_userid_" + userId + "_itemid_" + itemId, token);
+        redisTemplate.expire("promo_token_" + promoId + "_userid_" + userId + "_itemid_" + itemId, 5, TimeUnit.MINUTES);
+        return token;
     }
 
     private PromoModel convertFromDataObject(PromoDO promoDO) {

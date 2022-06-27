@@ -7,6 +7,7 @@ import com.google.mq.MqProducer;
 import com.google.response.CommonReturnType;
 import com.google.service.ItemService;
 import com.google.service.OrderService;
+import com.google.service.PromoService;
 import com.google.service.model.OrderModel;
 import com.google.service.model.UserModel;
 import org.apache.commons.lang3.StringUtils;
@@ -37,14 +38,16 @@ public class OrderController extends BaseController {
     @Autowired
     private ItemService itemService;
 
-    // 封装下单请求
-    @RequestMapping(value = "/createorder", method = {RequestMethod.POST}, consumes = {CONTENT_TYPE_FORMED})
-    @ResponseBody
-    public CommonReturnType createOrder(@RequestParam(name = "itemId") Integer itemId,
-                                        @RequestParam(name = "amount") Integer amount,
-                                        @RequestParam(name = "promoId", required = false) Integer promoId) throws BusinessException {
+    @Autowired
+    private PromoService promoService;
 
-        //Boolean isLogin = (Boolean) httpServletRequest.getSession().getAttribute("IS_LOGIN");
+    // 生成秒杀令牌
+    @RequestMapping(value = "/generatetoken", method = {RequestMethod.POST}, consumes = {CONTENT_TYPE_FORMED})
+    @ResponseBody
+    public CommonReturnType generatetoken(@RequestParam(name = "itemId") Integer itemId,
+                                          @RequestParam(name = "promoId") Integer promoId) throws BusinessException {
+
+        // 根据token获取用户登录信息
         String token = httpServletRequest.getParameterMap().get("token")[0];
 
         if (StringUtils.isEmpty(token)) {
@@ -58,8 +61,51 @@ public class OrderController extends BaseController {
             throw new BusinessException(EmBusinessError.PARAMETER__VALIDATION_ERROR, "用户还未登录，不能下单");
         }
 
-        // UserModel userModel = (UserModel) httpServletRequest.getSession().getAttribute("LOGIN_USER");
-        // OrderModel orderModel = orderService.createOrder(userModel.getId(), itemId, promoId, amount);
+        // 获取秒杀令牌
+        String promoToken = promoService.generateSecondKillToken(promoId, itemId, userModel.getId());
+
+        if (promoToken == null) {
+            throw new BusinessException(EmBusinessError.PARAMETER__VALIDATION_ERROR, "生成令牌失败");
+        }
+
+        return CommonReturnType.create(promoToken);
+    }
+
+
+    // 封装下单请求
+    @RequestMapping(value = "/createorder", method = {RequestMethod.POST}, consumes = {CONTENT_TYPE_FORMED})
+    @ResponseBody
+    public CommonReturnType createOrder(@RequestParam(name = "itemId") Integer itemId,
+                                        @RequestParam(name = "amount") Integer amount,
+                                        @RequestParam(name = "promoId", required = false) Integer promoId,
+                                        @RequestParam(name = "promoToken", required = false) String promoToken) throws BusinessException {
+
+
+
+        String token = httpServletRequest.getParameterMap().get("token")[0];
+
+        if (StringUtils.isEmpty(token)) {
+            throw new BusinessException(EmBusinessError.PARAMETER__VALIDATION_ERROR, "用户还未登录，不能下单");
+        }
+
+        // 获取用户登录信息
+        UserModel userModel = (UserModel) redisTemplate.opsForValue().get(token);
+
+        if (userModel == null) {
+            throw new BusinessException(EmBusinessError.PARAMETER__VALIDATION_ERROR, "用户还未登录，不能下单");
+        }
+
+        // 校验秒杀令牌是否正确
+        if (promoId != null) {
+            String inRedisPromoToken = (String) redisTemplate.opsForValue().get("promo_token_" + promoId + "_userid_" + userModel.getId() + "_itemid_" + itemId);
+            if (inRedisPromoToken == null) {
+                throw new BusinessException(EmBusinessError.PARAMETER__VALIDATION_ERROR, "秒杀令牌校验失败");
+            }
+
+            if (!StringUtils.equals(promoToken, inRedisPromoToken)) {
+                throw new BusinessException(EmBusinessError.PARAMETER__VALIDATION_ERROR, "秒杀令牌校验失败");
+            }
+        }
 
         // 判断库存是否已售罄，若对应的售罄key存在，则直接返回下单失败
         if (redisTemplate.hasKey("promo_item_stock_invalid_" + itemId)) {
