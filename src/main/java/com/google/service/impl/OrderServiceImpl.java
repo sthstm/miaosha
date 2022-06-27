@@ -2,8 +2,10 @@ package com.google.service.impl;
 
 import com.google.dao.OrderDOMapper;
 import com.google.dao.SequenceDOMapper;
+import com.google.dao.StockLogDOMapper;
 import com.google.dataobject.OrderDO;
 import com.google.dataobject.SequenceDO;
+import com.google.dataobject.StockLogDO;
 import com.google.error.BusinessException;
 import com.google.error.EmBusinessError;
 import com.google.service.ItemService;
@@ -41,9 +43,13 @@ public class OrderServiceImpl implements OrderService {
     @Autowired
     private SequenceDOMapper sequenceDOMapper;
 
+
+    @Autowired
+    private StockLogDOMapper stockLogDOMapper;
+
     @Override
     @Transactional
-    public OrderModel createOrder(Integer userId, Integer itemId, Integer promoId, Integer amount) throws BusinessException {
+    public OrderModel createOrder(Integer userId, Integer itemId, Integer promoId, Integer amount, String stockLogId) throws BusinessException {
         // 校验下单状态，下单的商品是否存在，用户是否合法，购买数量是否正确
         //ItemModel itemModel = itemService.getItemById(itemId);
         ItemModel itemModel = itemService.getItemByIdInCache(itemId);
@@ -99,6 +105,15 @@ public class OrderServiceImpl implements OrderService {
 
         // 增加商品的销量
         itemService.increaseSales(itemId, amount);
+
+        // 设置库存流水状态为成功
+        StockLogDO stockLogDO = stockLogDOMapper.selectByPrimaryKey(stockLogId);
+        if (stockLogDO == null) {
+            throw new BusinessException(EmBusinessError.UNKNOWN_ERROR);
+        }
+
+        stockLogDO.setStatus(2);
+        stockLogDOMapper.updateByPrimaryKeySelective(stockLogDO);
 
 //        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
 //            @Override

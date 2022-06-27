@@ -2,8 +2,10 @@ package com.google.service.impl;
 
 import com.google.dao.ItemDOMapper;
 import com.google.dao.ItemStockDOMapper;
+import com.google.dao.StockLogDOMapper;
 import com.google.dataobject.ItemDO;
 import com.google.dataobject.ItemStockDO;
+import com.google.dataobject.StockLogDO;
 import com.google.error.BusinessException;
 import com.google.error.EmBusinessError;
 import com.google.mq.MqProducer;
@@ -24,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -47,6 +50,9 @@ public class ItemServiceImpl implements ItemService {
 
     @Autowired
     private MqProducer mqProducer;
+
+    @Autowired
+    private StockLogDOMapper stockLogDOMapper;
 
     @Override
     @Transactional
@@ -176,6 +182,22 @@ public class ItemServiceImpl implements ItemService {
     @Transactional
     public void increaseSales(Integer itemId, Integer amount) throws BusinessException {
         itemDOMapper.increaseSales(itemId, amount);
+    }
+
+
+
+    // 初始化库存流水
+    @Override
+    @Transactional
+    public String initStockLog(Integer itemId, Integer amount) {
+        StockLogDO stockLogDO = new StockLogDO();
+        stockLogDO.setItemId(itemId);
+        stockLogDO.setAmount(amount);
+        stockLogDO.setStockLogId(UUID.randomUUID().toString().replace("-", ""));
+        stockLogDO.setStatus(1);
+
+        stockLogDOMapper.insertSelective(stockLogDO);
+        return stockLogDO.getStockLogId();
     }
 
     private ItemModel convertFromDataObject(ItemDO itemDO, ItemStockDO itemStockDO) {

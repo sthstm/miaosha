@@ -1,6 +1,8 @@
 package com.google.mq;
 
 import com.alibaba.fastjson.JSON;
+import com.google.dao.StockLogDOMapper;
+import com.google.dataobject.StockLogDO;
 import com.google.error.BusinessException;
 import com.google.service.OrderService;
 import org.apache.rocketmq.client.exception.MQBrokerException;
@@ -35,6 +37,9 @@ public class MqProducer {
     @Autowired
     private OrderService orderService;
 
+    @Autowired
+    private StockLogDOMapper stockLogDOMapper;
+
     @PostConstruct
     public void init() throws MQClientException {
         // mq producer 的初始化
@@ -54,12 +59,16 @@ public class MqProducer {
                 Integer promoId = (Integer) ((Map)arg).get("promoId");
                 Integer amount = (Integer) ((Map)arg).get("amount");
                 Integer userId = (Integer) ((Map)arg).get("userId");
-
+                String stockLogId = (String) ((Map)arg).get("stockLogId");
                 // 真正要做的是创建订单
                 try {
-                    orderService.createOrder(userId, itemId, promoId, amount);
+                    orderService.createOrder(userId, itemId, promoId, amount, stockLogId);
                 } catch (BusinessException e) {
                     e.printStackTrace();
+                    // 设置对应的stockLog为回滚状态
+                    StockLogDO stockLogDO = stockLogDOMapper.selectByPrimaryKey(stockLogId);
+                    stockLogDO.setStatus(3);
+                    stockLogDOMapper.updateByPrimaryKeySelective(stockLogDO);
                     return LocalTransactionState.ROLLBACK_MESSAGE;
                 }
 
@@ -73,23 +82,36 @@ public class MqProducer {
                 Map<String, Object> map = JSON.parseObject(jsonStr, Map.class);
                 Integer itemId = (Integer) map.get("itemId");
                 Integer amount = (Integer) map.get("amount");
-                return null;
+                String stockLogId = (String) map.get("stockLogId");
+                StockLogDO stockLogDO = stockLogDOMapper.selectByPrimaryKey(stockLogId);
+                if (stockLogDO == null) {
+                    return LocalTransactionState.UNKNOW;
+                }
+
+                if (stockLogDO.getStatus() == 2) {
+                    return LocalTransactionState.COMMIT_MESSAGE;
+                } else if (stockLogDO.getStatus() == 1) {
+                    return LocalTransactionState.UNKNOW;
+                }
+                return LocalTransactionState.ROLLBACK_MESSAGE;
             }
         });
     }
 
 
     // 事务型同步库存扣减消息
-    public boolean transactionAsyncReduceStock(Integer userId, Integer itemId, Integer promoId, Integer amount) {
+    public boolean transactionAsyncReduceStock(Integer userId, Integer itemId, Integer promoId, Integer amount, String stockLogId) {
         Map<String, Object> bodyMap = new HashMap<>();
         bodyMap.put("itemId", itemId);
         bodyMap.put("amount", amount);
+        bodyMap.put("stockLogId", stockLogId);
 
         Map<String, Object> argsMap = new HashMap<>();
         argsMap.put("itemId", itemId);
         argsMap.put("amount", amount);
         argsMap.put("userId", userId);
         argsMap.put("promoId", promoId);
+        argsMap.put("stockLogId", stockLogId);
 
         Message message = new Message(topicName, "increase", JSON.toJSON(bodyMap).toString().getBytes(StandardCharsets.UTF_8));
         TransactionSendResult sendResult = null;
