@@ -8,7 +8,6 @@ import com.google.response.CommonReturnType;
 import com.google.service.ItemService;
 import com.google.service.OrderService;
 import com.google.service.PromoService;
-import com.google.service.model.OrderModel;
 import com.google.service.model.UserModel;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +15,9 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
+import javax.annotation.PostConstruct;
 import javax.servlet.http.HttpServletRequest;
+import java.util.concurrent.*;
 
 @Controller("order")
 @RequestMapping("/order")
@@ -40,6 +41,15 @@ public class OrderController extends BaseController {
 
     @Autowired
     private PromoService promoService;
+
+    private ExecutorService executorService;
+
+    @PostConstruct
+    public void init() {
+        executorService = Executors.newFixedThreadPool(20);
+
+    }
+
 
     // 生成秒杀令牌
     @RequestMapping(value = "/generatetoken", method = {RequestMethod.POST}, consumes = {CONTENT_TYPE_FORMED})
@@ -81,7 +91,6 @@ public class OrderController extends BaseController {
                                         @RequestParam(name = "promoToken", required = false) String promoToken) throws BusinessException {
 
 
-
         String token = httpServletRequest.getParameterMap().get("token")[0];
 
         if (StringUtils.isEmpty(token)) {
@@ -107,18 +116,27 @@ public class OrderController extends BaseController {
             }
         }
 
-        // 判断库存是否已售罄，若对应的售罄key存在，则直接返回下单失败
-        if (redisTemplate.hasKey("promo_item_stock_invalid_" + itemId)) {
-            throw new BusinessException(EmBusinessError.STOCK_NOT_ENOUGH);
-        }
-        // 加入库存流水init状态
-        String stockLogId = itemService.initStockLog(itemId, amount);
+        // 同步调用线程池的submit方法
+        Future<Object> future = executorService.submit(new Callable<Object>() {
+            @Override
+            public Object call() throws Exception {
+                // 加入库存流水init状态
+                String stockLogId = itemService.initStockLog(itemId, amount);
 
+                // 再去完成对应的下单事务型消息
+                if (!mqProducer.transactionAsyncReduceStock(userModel.getId(), itemId, promoId, amount, stockLogId)) {
+                    throw new BusinessException(EmBusinessError.UNKNOWN_ERROR, "下单失败");
+                }
+                return null;
+            }
+        });
 
-        // 再去完成对应的下单事务型消息
-        if (!mqProducer.transactionAsyncReduceStock(userModel.getId(), itemId, promoId, amount, stockLogId)) {
-            throw new BusinessException(EmBusinessError.UNKNOWN_ERROR, "下单失败");
+        try {
+            future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new BusinessException(EmBusinessError.UNKNOWN_ERROR);
         }
+
         return CommonReturnType.create(null);
     }
 }
